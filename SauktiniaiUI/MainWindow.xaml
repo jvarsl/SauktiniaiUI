@@ -1,0 +1,42 @@
+﻿<Window x:Class="SauktiniaiUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SauktiniaiUI"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="420" Width="600">
+    <Window.Resources>
+        <ObjectDataProvider MethodName="GetValues"
+                            xmlns:system="clr-namespace:System;assembly=mscorlib"
+                            ObjectType="{x:Type system:Enum}"
+                            x:Key="City">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="local:City" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="0.5*"></RowDefinition>
+            <RowDefinition Height="3*"></RowDefinition>
+            <RowDefinition Height="0.5*"></RowDefinition>
+            <RowDefinition Height="1*"></RowDefinition>
+            <RowDefinition Height="1*"></RowDefinition>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"></ColumnDefinition>
+            <ColumnDefinition Width="3*"></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <ListBox Margin="5,0,5,0" x:Name="listbox_City" Grid.Row="1" Grid.Column="0" ItemsSource="{Binding Source={StaticResource City}}"  />
+        <!-- SelectedItem="{Binding SelectedCity, Mode=TwoWay}" - doesn't update -->
+        <Button x:Name="button_DownloadJson" Content="Siųstis JSON" HorizontalAlignment="Center" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" FontSize="16" Click="button_DownloadJson_Click"/>
+        <Label Grid.Row="0" Grid.Column="0" Content="Miestas" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+        <Label Grid.Row="2" Grid.Column="0" Content="Failo išsaugojimo vieta" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+        <Button Margin="5,5,5,5" x:Name="button_SelectPath" Content="Browse" HorizontalAlignment="Right" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" FontSize="8" Click="button_SelectPath_Click"/>
+        <TextBox x:Name="textbox_FolderPath" HorizontalAlignment="Stretch" Margin="5,0,40,0" Grid.Row="3" Text="C:\" TextWrapping="Wrap" VerticalAlignment="Center" IsEnabled="False"/>
+        <Label x:Name="label_warning" Content="" HorizontalAlignment="Left" Margin="5,37,0,0" Grid.Row="3" VerticalAlignment="Top" RenderTransformOrigin="0.639,0.677" Grid.RowSpan="2" Background="White" FontWeight="Bold" Foreground="#FFBB0505"/>
+        <TextBox x:Name="textbox_GeneratedSql" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5,5,5,5" Grid.Row="1" TextWrapping="Wrap" Grid.RowSpan="4"/>
+        <Label Grid.Row="0" Grid.Column="1" Content="SQL importavimui skriptas" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+    </Grid>
+</Window>
