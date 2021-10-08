@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +15,8 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using Newtonsoft.Json;
+using SauktiniaiUI.Models;
 
 namespace SauktiniaiUI
 {
@@ -22,6 +25,7 @@ namespace SauktiniaiUI
         public MainWindow()
         {
             InitializeComponent();
+            ApiHelper.InitializeApiClient();
         }
 
         private void button_SelectPath_Click(object sender, RoutedEventArgs e)
@@ -34,84 +38,73 @@ namespace SauktiniaiUI
                 textbox_FolderPath.Text = dialog.FileName;
             }
         }
-
         private async void button_DownloadJson_Click(object sender, RoutedEventArgs e)
         {
-            if (listbox_City.SelectedIndex == -1 || String.IsNullOrEmpty(textbox_FolderPath.Text))
+            if (listbox_City.SelectedIndex == -1 || string.IsNullOrEmpty(textbox_FolderPath.Text))
             {
-                label_warning.Content = "Nepasirinktas aplankalas arba miestas!";
+                label_warning.Content = "Nepasirinktas aplankalas arba miestas";
+                return;
             }
-            else
+
+            button_DownloadJson.IsEnabled = false;
+            City city = (City)listbox_City.SelectedItem;
+            string filePath = $"{textbox_FolderPath.Text}\\{city}_{DateTime.Now:yyyyMMdd}.json";
+
+            // the website uses 0-99 ranges for each page increasing by 100
+            // once the range is over the possible entries nothing will get returned and loop will exit-break
+            var wholeEnlistedPeopleList = new List<EnlistedPerson>();
+            for (int rangeNumber = 0; ; rangeNumber += 100)
             {
-                button_DownloadJson.IsEnabled = false;
-                City city = (City)listbox_City.SelectedItem;
-                string filePath = $"{textbox_FolderPath.Text}\\{city}_{DateTime.Now:yyyyMMdd}.json";
-                for (int i = 0; i <= 15000; i += 100)
+                var range = $"{rangeNumber}-{rangeNumber + 99}";
+
+                ReportCurrentRange(range);
+
+                var newEntries = await MilitantsProcessor.GetMilitantsPageDataAsync(city, range);
+                wholeEnlistedPeopleList.AddRange(newEntries);
+
+                if (!newEntries.Any())
                 {
-                    string range = $"{i}-{i + 99}";
-
-                    Dispatcher.Invoke(new Action(() => { ReportCurrentRange(range); }), DispatcherPriority.ContextIdle);
-
-                    long fileSizeBefore = Sauktiniai.GetJsonFileSize(filePath);
-
-                    string cmdRequest = Sauktiniai.CmdRequestString(filePath, range, (int)city);
-                    Sauktiniai.CmdExecute(cmdRequest);
-
-                    long fileSizeAfter = Sauktiniai.GetJsonFileSize(filePath);
-
-                    //runs until no new data is entering the file
-                    if (Math.Abs(fileSizeAfter - fileSizeBefore) <= 10)
-                    {
-                        break;
-                    }
+                    break;
                 }
-                Sauktiniai.MakeProperJson(filePath, city);
-
-                FillSqlTextbox(filePath);
-                label_warning.Content = String.Empty;
-                button_DownloadJson.IsEnabled = true;
             }
+
+            wholeEnlistedPeopleList.ForEach(x => x.RegionNumber = city);
+            var json = JsonConvert.SerializeObject(wholeEnlistedPeopleList);
+            File.WriteAllText(filePath, json, Encoding.Unicode);
+
+            FillSqlTextbox(filePath);
+            label_warning.Content = string.Empty;
+            button_DownloadJson.IsEnabled = true;
         }
+
         private void ReportCurrentRange(string range)
         {
             label_warning.Content = $"Siunčiami numeriai: {range}";
         }
+
         private void FillSqlTextbox(string filePath)
         {
-            textbox_GeneratedSql.Text = $@"
-DECLARE @JSON NVARCHAR(MAX)
+            textbox_GeneratedSql.Text =
+                  $@"
+                    DECLARE @JSON NVARCHAR(MAX)
 
-SELECT @JSON = BulkColumn
-FROM OPENROWSET(BULK '{filePath}', SINGLE_NCLOB) AS j
+                    SELECT @JSON = BulkColumn
+                    FROM OPENROWSET(BULK '{filePath}', SINGLE_NCLOB) AS j
 
-SELECT *
--- INTO [YOUR_NEW_TABLE_NAME]
-FROM OPENJSON(@json) WITH (
-		 [pos] INT
-		,[number] VARCHAR(100)
-		,[name] VARCHAR(100)
-		,[lastname] VARCHAR(100)
-		,[bdate] SMALLINT
-		,[department] VARCHAR(50)
-		,[info] VARCHAR(max)
-		,[date] DATE
-		,[region] VARCHAR(50)
-		,[regionNo] SMALLINT
-		);";
+                    SELECT *
+                    -- INTO [YOUR_NEW_TABLE_NAME]
+                    FROM OPENJSON(@json) WITH (
+		                     [pos] INT
+		                    ,[number] VARCHAR(100)
+		                    ,[name] VARCHAR(100)
+		                    ,[lastname] VARCHAR(100)
+		                    ,[bdate] SMALLINT
+		                    ,[department] VARCHAR(50)
+		                    ,[info] VARCHAR(max)
+		                    ,[date] DATE
+		                    ,[region] VARCHAR(50)
+		                    ,[regionNo] SMALLINT
+		                    );";
         }
     }
 }
-
-/*
-SELECT count(*) Skaičius
-	,bdate [Gimimo data]
-	,cast(count(*) * 1.0 / (
-			SELECT count(*)
-			FROM [TABLE_NAME]
-			) AS DECIMAL(10, 4)) [Pakviestų procentas bendras]
-	,sum(iif(info = 'privalomoji karo tarnyba atidėta', 1, 0)) [Tarnyba atidėta]
-	,isnull(cast(1.0 * nullif((sum(iif(info = 'privalomoji karo tarnyba atidėta', 1, 0))), 0) / count(*) AS DECIMAL(10, 4)), 0) [Tarnyba atidėta procentas]
-FROM [TABLE_NAME]
-GROUP BY bdate
-ORDER BY [Gimimo data]
- */
